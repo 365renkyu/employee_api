@@ -1,117 +1,139 @@
-
-//GET
-using Microsoft.AspNetCore.Mvc;
 using EmployeeModel;
 using System.ComponentModel;
+using Microsoft.AspNetCore.Mvc;
+using EmployeeServices;
 
 [ApiController]
 [Route("api/[controller]")]
 public class GetEmployeeController : ControllerBase
 {
-    //全情報取得
+    ////< summary>
+    ///全ての社員情報を取得
+    ///</summary>
     [HttpGet]
     public ActionResult<List<Employee>> GetAll()
     {
         return EmployeeServices.Employees.EmployeeList;
     }
 
-    //社員番号
+    ///< summary>
+    ///社員番号に紐づく社員情報を取得
+    ///</summary>
     [HttpGet("{shainNo}")]
     public ActionResult<Employee> GetById(string shainNo)
     {
-        var employeeListByShainNo = EmployeeServices.Employees.EmployeeList
-            .FirstOrDefault(e => e.ShainNo == shainNo);
+        var service = new EmployeeService();
+        var empListByShainNo = service.GetByShainNo(shainNo);
 
-        if (employeeListByShainNo is null)  //未取得
+        if (empListByShainNo is null)
         {
             return NotFound();
         }
 
-        return employeeListByShainNo;
+        return empListByShainNo;
     }
 }
 
-//POST
+///< summary>
+///POST
+///</summary>
 [ApiController]
 [Route("employees")]
 public class PostEmployeeController : ControllerBase
 {
+    ///< summary>
+    ///新規登録
+    ///</summary>
     [HttpPost]
-    public IActionResult Create([FromBody] CreateEmployeeDto dto)
+    public IActionResult Create([FromBody] CreateEmployeeDto body)
     {
-        //リクエストボディ　存在チェック
-        if (dto is null) {
+        /*
+        //リクエストボディ　存在チェック→不要？
+        if (body is null)
+        {
             return BadRequest("Requiest Bodyが存在しません。");
         }
+        */
 
-        //採番（あとでDB対応）
-        //自動採番（社員番号最大値＋１）
-        //既存の社員がいるにもかかわらず0+1=1になる場合、後続の社員番号重複エラーでハンドリング
-        dto.ShainNo = (int.Parse(EmployeeServices.Employees.EmployeeList.Max(e => e.ShainNo)) + 1).ToString();
+        /*
+                //バリデーション処理→不要？
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest("登録内容に不備があります。　詳細：" + ModelState);
+                }
+                */
 
-        var exists = EmployeeServices.Employees.EmployeeList
-            .Any(e => e.ShainNo == dto.ShainNo);
+        var service = new EmployeeService();
+        string tmpShainNo = service.AssignShainNo();
 
-        //社員番号重複エラー
-        if (exists)
+        //採番処理（falseの場合、社員番号重複エラー）
+        if (String.IsNullOrEmpty(tmpShainNo))
         {
             return Conflict("既に存在する社員番号です。");
         }
+
         //登録
-        var employee = new Employee
+        if (service.Register(tmpShainNo, body))
         {
-            ShainNo = dto.ShainNo,  
-            Name = dto.Name,
-            Busho = dto.Busho
-        };
-
-        EmployeeServices.Employees.EmployeeList.Add(employee);
-
-        // ⑤ 201 Created
-        return CreatedAtAction(
-            nameof(Create),
-            new { shainNo = employee.ShainNo },
-            employee
-        );
+            return CreatedAtAction(nameof(Create), body); //201 Created
+        }
+        else
+        {
+            return StatusCode(500, "登録に失敗しました");
+        }
     }
 }
 
-//PUT
+///< summary>
+///PUT
+///</summary>
 [ApiController]
 [Route("api/[controller]")]
 public class PutEmployeeController : ControllerBase
 {
-    //社員番号
+    ///< summary>
+    ///社員番号に紐づく社員情報の全項目を更新
+    ///</summary>
     [HttpPut("{shainNo}")]
-    public IActionResult Update(string shainNo, [FromBody] UpdateEmployeeDto dto)
+    public IActionResult Update(string shainNo, [FromBody] UpdateEmployeeDto body)
     {
-        Console.WriteLine($"PUT URL shainNo = {shainNo}");
+        //Console.WriteLine($"PUT URL shainNo = {shainNo}");
         //Console.WriteLine($"PUT BODY shainNo = {updShainNo?.ShainNo}");
 
-        //リクエストボディ　存在チェック
-        if (dto is null) {
-            return BadRequest("Requiest Bodyが存在しません。");
-        }
+        /*
+                //リクエストボディ　存在チェック→不要？
+                if (body is null)
+                {
+                    return BadRequest("Requiest Bodyが存在しません。");
+                }
+                */
 
-        //パラメータの社員番号未入力
+        /*
+        //パラメータ.社員番号未入力
         if (String.IsNullOrEmpty(shainNo))
         {
             return BadRequest("パラメータが設定されていません。");
         }
 
-        //更新先データ存在チェック
-        var employeeListByShainNo = EmployeeServices.Employees.EmployeeList
-            .FirstOrDefault(e => e.ShainNo == shainNo);
-        if (employeeListByShainNo is null)
+                //バリデーション処理
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest("登録内容に不備があります。　詳細：" + ModelState);
+                }
+                */
+
+        var service = new EmployeeService();
+
+        //更新
+        if (!service.UpdateEmployee(shainNo, body))
         {
             return NotFound("社員が存在しません。");
         }
+        else
+        {
+            service.UpdateEmployee(shainNo, body);
+            return Ok();
+        }
 
-        //更新
-        employeeListByShainNo.Name = dto.Name;
-        employeeListByShainNo.Busho = dto.Busho;
-
-        return Ok(employeeListByShainNo); //200（意図：調査用）
     }
-
 }

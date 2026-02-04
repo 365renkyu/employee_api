@@ -1,0 +1,6 @@
+{
+    "git.inputValidation": true,
+    "omnisharp.useModernNet": true,
+    "omnisharp.path": "latest",
+    "omnisharp.sdkPath": "/usr/local/share/dotnet"
+}
