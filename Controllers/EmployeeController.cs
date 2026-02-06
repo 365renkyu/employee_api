@@ -2,6 +2,7 @@ using EmployeeModel;
 using System.ComponentModel;
 using Microsoft.AspNetCore.Mvc;
 using EmployeeServices;
+using MessageModel;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -11,32 +12,29 @@ public class GetEmployeeController : ControllerBase
     ///全ての社員情報を取得
     ///</summary>
     [HttpGet]
-    public ActionResult<List<Employee>> GetAll()
+    public ActionResult<Employee> GetControllerByAll()
     {
-        return EmployeeServices.Employees.EmployeeList;
+        var service = new EmployeeService();
+        return Ok(service.GetAll());
     }
 
     ///< summary>
     ///社員番号に紐づく社員情報を取得
     ///</summary>
     [HttpGet("{shainNo}")]
-    public ActionResult<Employee> GetById(string shainNo)
+    public ActionResult<Employee> GetControllerByShainNo(string shainNo)
     {
         var service = new EmployeeService();
         var empListByShainNo = service.GetByShainNo(shainNo);
 
         if (empListByShainNo is null)
         {
-            return NotFound();
+            return NotFound(); //404
         }
-
-        return empListByShainNo;
+        return Ok(empListByShainNo);
     }
 }
 
-///< summary>
-///POST
-///</summary>
 [ApiController]
 [Route("employees")]
 public class PostEmployeeController : ControllerBase
@@ -45,48 +43,35 @@ public class PostEmployeeController : ControllerBase
     ///新規登録
     ///</summary>
     [HttpPost]
-    public IActionResult Create([FromBody] CreateEmployeeDto body)
+    public IActionResult CreateController([FromBody] CreateEmployeeDto body)
     {
-        /*
-        //リクエストボディ　存在チェック→不要？
-        if (body is null)
-        {
-            return BadRequest("Requiest Bodyが存在しません。");
-        }
-        */
-
-        /*
-                //バリデーション処理→不要？
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest("登録内容に不備があります。　詳細：" + ModelState);
-                }
-                */
-
         var service = new EmployeeService();
+        var message = new Message();
+
         string tmpShainNo = service.AssignShainNo();
+
+        //400 BadRequestは入れるべき？
 
         //採番処理（falseの場合、社員番号重複エラー）
         if (String.IsNullOrEmpty(tmpShainNo))
         {
-            return Conflict("既に存在する社員番号です。");
+            return Conflict("既に存在する社員番号です。"); //E001:既に存在する社員番号です。
+            //return Conflict(message.MessageTxt); //E001:既に存在する社員番号です。
         }
 
         //登録
-        if (service.Register(tmpShainNo, body))
+        try
         {
-            return CreatedAtAction(nameof(Create), body); //201 Created
+            service.Register(tmpShainNo, body);
+            return CreatedAtAction(nameof(CreateController), body); //201 Created
         }
-        else
+        catch (Exception ex)
         {
-            return StatusCode(500, "登録に失敗しました");
+            return StatusCode(500, new { message = "サーバーエラーが発生しました。", errorCode = "INTERNAL_SERVER_ERROR" });
         }
     }
 }
 
-///< summary>
-///PUT
-///</summary>
 [ApiController]
 [Route("api/[controller]")]
 public class PutEmployeeController : ControllerBase
@@ -97,43 +82,55 @@ public class PutEmployeeController : ControllerBase
     [HttpPut("{shainNo}")]
     public IActionResult Update(string shainNo, [FromBody] UpdateEmployeeDto body)
     {
-        //Console.WriteLine($"PUT URL shainNo = {shainNo}");
-        //Console.WriteLine($"PUT BODY shainNo = {updShainNo?.ShainNo}");
-
-        /*
-                //リクエストボディ　存在チェック→不要？
-                if (body is null)
-                {
-                    return BadRequest("Requiest Bodyが存在しません。");
-                }
-                */
-
-        /*
-        //パラメータ.社員番号未入力
-        if (String.IsNullOrEmpty(shainNo))
-        {
-            return BadRequest("パラメータが設定されていません。");
-        }
-
-                //バリデーション処理
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest("登録内容に不備があります。　詳細：" + ModelState);
-                }
-                */
-
         var service = new EmployeeService();
 
         //更新
-        if (!service.UpdateEmployee(shainNo, body))
+        try
         {
-            return NotFound("社員が存在しません。");
+            if (service.UpdateEmployee(shainNo, body))
+            {
+                return Ok();
+            }
+            else
+            {
+                return NotFound("社員が存在しません。");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            service.UpdateEmployee(shainNo, body);
-            return Ok();
+            return StatusCode(500, new { message = "サーバーエラーが発生しました。", errorCode = "INTERNAL_SERVER_ERROR" });
         }
+    }
+}
 
+[ApiController]
+[Route("api/[controller]")]
+public class DeleteEmployeeController : ControllerBase
+{
+    ///< summary>
+    ///社員番号に紐づく社員情報を削除
+    ///</summary>
+    [HttpPut("{shainNo}")]
+    public IActionResult Delete(string shainNo)
+    {
+        var service = new EmployeeService();
+
+        //削除
+        try
+        {
+            if (service.DeleteEmployee(shainNo))
+            {
+                return NoContent(); //204
+            }
+            else
+            {
+                return NotFound("社員が存在しません。");
+            }
+
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "サーバーエラーが発生しました。", errorCode = "INTERNAL_SERVER_ERROR" });
+        }
     }
 }

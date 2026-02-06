@@ -1,6 +1,4 @@
 using EmployeeModel;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Razor.TagHelpers;
 
 namespace EmployeeServices
 {
@@ -20,29 +18,50 @@ namespace EmployeeServices
 
     public class EmployeeService
     {
+
         /// <summary>
         /// 社員情報取得処理
         /// </summary>
         /// <param name="shainNo"></param>
         /// <returns></returns>
-        public ActionResult<Employee> GetByShainNo(string shainNo)
+        public List<Employee> GetAll()
         {
-            var employeeListByShainNo = EmployeeServices.Employees.EmployeeList
-                                      .FirstOrDefault(e => e.ShainNo == shainNo & !e.IsDeleted);
+            return Employees.EmployeeList;
+        }
 
-            return employeeListByShainNo;
+        /// <summary>
+        /// 社員情報取得処理
+        /// </summary>
+        /// <param name="shainNo"></param>
+        /// <returns></returns>
+        public Employee GetByShainNo(string shainNo)
+        {
+            var empListByShainNo = EmployeeServices.Employees.EmployeeList
+                                  .FirstOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
+
+            return empListByShainNo;
         }
 
 
         /// <summary>
         /// 社員番号採番処理（あとでDB対応）
         /// 自動採番（社員番号最大値＋１）
+        /// 10001番からスタート
         /// 既存の社員がいるにもかかわらず0+1=1になる場合、後続の社員番号重複エラーでハンドリング
         /// </summary>
         public string AssignShainNo()
         {
             var empList = Employees.EmployeeList;
-            var tmpShainNo = (int.Parse(empList.Max(e => e.ShainNo)) + 1).ToString();
+            string tmpShainNo = "";
+
+            if (empList is null || !empList.Any())
+            {
+                tmpShainNo = "10001"; // 初回登録の場合
+            }
+            else
+            {
+                tmpShainNo = (int.Parse(empList.Max(e => e.ShainNo)) + 1).ToString();
+            }
 
             var exists = empList.Any(e => e.ShainNo == tmpShainNo);
 
@@ -61,7 +80,7 @@ namespace EmployeeServices
         /// <returns></returns>
         public bool Register(string shainNo, CreateEmployeeDto body)
         {
-            //例外処理　後で追加
+            var empList = Employees.EmployeeList;
 
             //登録
             var employee = new EmployeeModel.Employee
@@ -74,7 +93,7 @@ namespace EmployeeServices
                 IsDeleted = body.IsDeleted
             };
 
-            EmployeeServices.Employees.EmployeeList.Add(employee);
+            empList.Add(employee);
             return true;
         }
 
@@ -84,20 +103,43 @@ namespace EmployeeServices
         /// <returns></returns>
         public bool UpdateEmployee(string shainNo, UpdateEmployeeDto body)
         {
-            //更新先データ存在チェック
-            var employeeListByShainNo = EmployeeServices.Employees.EmployeeList
-            .FirstOrDefault(e => e.ShainNo == shainNo);
-            if (employeeListByShainNo is null)
+            var empList = Employees.EmployeeList;
+
+            //更新対象データ存在チェック
+            var empListByShainNo = empList.FirstOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
+            if (empListByShainNo is null)
             {
                 return false;  //★あとでエラーコード返すように変更したい「社員が存在しません」
             }
 
             //更新
-            employeeListByShainNo.Name = body.Name;
-            employeeListByShainNo.Busho = body.Busho;
-            employeeListByShainNo.Age = body.Age;
-            employeeListByShainNo.Hobby = body.Hobby;
-            employeeListByShainNo.IsDeleted = body.IsDeleted;
+            empListByShainNo.Name = body.Name;
+            empListByShainNo.Busho = body.Busho;
+            empListByShainNo.Age = body.Age;
+            empListByShainNo.Hobby = body.Hobby;
+            empListByShainNo.IsDeleted = body.IsDeleted;
+
+            return true;
+        }
+
+        /// <summary>
+        /// 削除処理
+        /// </summary>
+        /// <returns></returns>
+        public bool DeleteEmployee(string shainNo)
+        {
+            var empList = Employees.EmployeeList;
+
+            //削除対象データ存在チェック
+            var empListByShainNo = empList.FirstOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
+            if (empListByShainNo is null)
+            {
+                return false;  //★あとでエラーコード返すように変更したい「社員が存在しません」
+            }
+
+            //削除（論理削除）
+            //★トランザクション追記する
+            empListByShainNo.IsDeleted = true;
 
             return true;
         }

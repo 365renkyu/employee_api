@@ -1,9 +1,7 @@
 //DTO
+using System.ComponentModel.DataAnnotations;
 
 //POST用
-using System.ComponentModel.DataAnnotations;
-using System.Runtime.CompilerServices;
-
 public class CreateEmployeeDto
 {
     [Required]
