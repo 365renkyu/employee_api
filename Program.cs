@@ -1,11 +1,25 @@
+using EmployeeServices;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddScoped<EmployeeService>();
 // Swagger（API確認用）
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+             .AllowAnyHeader()
+             .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
+app.UseCors("AllowFrontend");
 
 //Swagger（Dev環境のみ）
 if (app.Environment.IsDevelopment())
