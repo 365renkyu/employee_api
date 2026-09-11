@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using EmployeeServices;
+using EmployeeModel;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -14,13 +15,13 @@ public class EmployeeController : ControllerBase
     }
 
     [HttpGet]
-    public IActionResult GetAll()
+    public ActionResult<IEnumerable<Employee>> GetAll()
     {
         return Ok(_service.GetAll());
     }
 
     [HttpGet("{shainNo}")]
-    public IActionResult GetByShainNo(string shainNo)
+    public ActionResult<IEnumerable<Employee>> GetByShainNo(string shainNo)
     {
         var empListByShainNo = _service.GetByShainNo(shainNo);
 
@@ -32,70 +33,48 @@ public class EmployeeController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult CreateController([FromBody] CreateEmployeeDto body)
+    public IActionResult Create([FromBody] CreateEmployeeDto body)
     {
         string tmpShainNo = _service.AssignShainNo();
 
-        //400 BadRequestは入れるべき？
+        //400 BadRequestは入れるべき？→[ApiController]がついているので、DTOで付与した属性に応じてバリデーションエラーを自動で出してくれる
 
-        //採番処理（falseの場合、社員番号重複エラー）
+        //リファクタリング対象：採番処理（falseの場合、社員番号重複エラー）
         if (String.IsNullOrEmpty(tmpShainNo))
         {
             return Conflict("既に存在する社員番号です。"); //E001:既に存在する社員番号です。
-                                              //return Conflict(message.MessageTxt); //E001:既に存在する社員番号です。
         }
 
-        //登録
-        try
-        {
-            _service.Register(tmpShainNo, body);
-            return CreatedAtAction(nameof(CreateController), body); //201 Created
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { message = "サーバーエラーが発生しました。", errorCode = "INTERNAL_SERVER_ERROR" });
-        }
-
+        _service.Register(tmpShainNo, body);
+        return CreatedAtAction(
+    nameof(GetByShainNo),
+    new { shainNo = tmpShainNo },
+    body);
     }
 
     [HttpPut("{shainNo}")]
     public IActionResult Update(string shainNo, [FromBody] UpdateEmployeeDto body)
     {
-        try
+        if (_service.UpdateEmployee(shainNo, body))
         {
-            if (_service.UpdateEmployee(shainNo, body))
-            {
-                return Ok();
-            }
-            else
-            {
-                return NotFound("社員が存在しません。");
-            }
+            return Ok();
         }
-        catch (Exception ex)
+        else
         {
-            return StatusCode(500, new { message = "サーバーエラーが発生しました。", errorCode = "INTERNAL_SERVER_ERROR" });
+            return NotFound("社員が存在しません。");  //リファクタリング対象
         }
     }
 
     [HttpDelete("{shainNo}")]
     public IActionResult Delete(string shainNo)
     {
-        try
+        if (_service.DeleteEmployee(shainNo))
         {
-            if (_service.DeleteEmployee(shainNo))
-            {
-                return NoContent(); //204
-            }
-            else
-            {
-                return NotFound("社員が存在しません。");
-            }
-
+            return NoContent(); //204
         }
-        catch (Exception ex)
+        else
         {
-            return StatusCode(500, new { message = "サーバーエラーが発生しました。", errorCode = "INTERNAL_SERVER_ERROR" });
+            return NotFound("社員が存在しません。");  //リファクタリング対象
         }
     }
 }
