@@ -21,7 +21,7 @@ public class EmployeeController : ControllerBase
     }
 
     [HttpGet("{shainNo}")]
-    public ActionResult<IEnumerable<Employee>> GetByShainNo(string shainNo)
+    public ActionResult<Employee> GetByShainNo(string shainNo)
     {
         var empListByShainNo = _service.GetByShainNo(shainNo);
 
@@ -35,47 +35,46 @@ public class EmployeeController : ControllerBase
     [HttpPost]
     public IActionResult Create([FromBody] CreateEmployeeDto body)
     {
-        string tmpShainNo = _service.AssignShainNo();
+        var result = _service.AssignShainNo();
 
         //400 BadRequestは入れるべき？→[ApiController]がついているので、DTOで付与した属性に応じてバリデーションエラーを自動で出してくれる
 
         //リファクタリング対象：採番処理（falseの場合、社員番号重複エラー）
-        if (String.IsNullOrEmpty(tmpShainNo))
+        if (result.Result is EmployeeResult.Conflict)
         {
-            return Conflict("既に存在する社員番号です。"); //E001:既に存在する社員番号です。
+            return Conflict("既に存在する社員番号です。");
         }
 
-        _service.Register(tmpShainNo, body);
+        var register = _service.Register(result.ShainNo, body);
+
         return CreatedAtAction(
-    nameof(GetByShainNo),
-    new { shainNo = tmpShainNo },
-    body);
+            nameof(GetByShainNo),
+            new { shainNo = result.ShainNo },
+            body);
     }
 
     [HttpPut("{shainNo}")]
     public IActionResult Update(string shainNo, [FromBody] UpdateEmployeeDto body)
     {
-        if (_service.UpdateEmployee(shainNo, body))
+        var result = _service.UpdateEmployee(shainNo, body);
+
+        return result switch
         {
-            return Ok();
-        }
-        else
-        {
-            return NotFound("社員が存在しません。");  //リファクタリング対象
-        }
+            EmployeeResult.Success => Ok(),
+            EmployeeResult.NotFound => NotFound("社員が存在しません。")
+        };
     }
 
     [HttpDelete("{shainNo}")]
     public IActionResult Delete(string shainNo)
     {
-        if (_service.DeleteEmployee(shainNo))
+        var result = _service.DeleteEmployee(shainNo);
+
+        return result switch
         {
-            return NoContent(); //204
-        }
-        else
-        {
-            return NotFound("社員が存在しません。");  //リファクタリング対象
-        }
+            EmployeeResult.Success => Ok(),
+            EmployeeResult.NotFound => NoContent()
+        };
     }
 }
 

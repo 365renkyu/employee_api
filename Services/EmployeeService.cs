@@ -34,12 +34,12 @@ namespace EmployeeServices
         /// </summary>
         /// <param name="shainNo"></param>
         /// <returns></returns>
-        public Employee GetByShainNo(string shainNo)
+        public Employee? GetByShainNo(string shainNo)
         {
             var empListByShainNo = EmployeeServices.Employees.EmployeeList
-                                  .FirstOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
+                                  .SingleOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
 
-            return empListByShainNo;
+            return empListByShainNo; //複数件数取得時は例外へ
         }
 
 
@@ -49,7 +49,7 @@ namespace EmployeeServices
         /// 10001番からスタート
         /// 既存の社員がいるにもかかわらず0+1=1になる場合、後続の社員番号重複エラーでハンドリング
         /// </summary>
-        public string AssignShainNo()
+        public AssignShainNoResult AssignShainNo()
         {
             var empList = Employees.EmployeeList;
             string tmpShainNo = "";
@@ -61,24 +61,31 @@ namespace EmployeeServices
             else
             {
                 tmpShainNo = (int.Parse(empList.Max(e => e.ShainNo)) + 1).ToString();
+                var exists = empList.Any(e => e.ShainNo == tmpShainNo);
+
+                //社員番号重複エラー
+                if (exists)
+                {
+                    return new AssignShainNoResult
+                    {
+                        Result = EmployeeResult.Conflict,
+                        ShainNo = null
+                    };
+                }
             }
 
-            var exists = empList.Any(e => e.ShainNo == tmpShainNo);
-
-            //社員番号重複エラー
-            if (exists)
+            return new AssignShainNoResult
             {
-                return "";
-            }
-
-            return tmpShainNo;
+                Result = EmployeeResult.Success,
+                ShainNo = null
+            };
         }
 
         /// <summary>
         /// 登録
         /// </summary>
         /// <returns></returns>
-        public bool Register(string shainNo, CreateEmployeeDto body)
+        public EmployeeResult Register(string shainNo, CreateEmployeeDto body)
         {
             var empList = Employees.EmployeeList;
 
@@ -94,22 +101,22 @@ namespace EmployeeServices
             };
 
             empList.Add(employee);
-            return true;
+            return EmployeeResult.Success;
         }
 
         /// <summary>
         /// 更新処理
         /// </summary>
         /// <returns></returns>
-        public bool UpdateEmployee(string shainNo, UpdateEmployeeDto body)
+        public EmployeeResult UpdateEmployee(string shainNo, UpdateEmployeeDto body)
         {
             var empList = Employees.EmployeeList;
 
             //更新対象データ存在チェック
-            var empListByShainNo = empList.FirstOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
+            var empListByShainNo = empList.SingleOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
             if (empListByShainNo is null)
             {
-                return false;  //★あとでエラーコード返すように変更したい「社員が存在しません」
+                return EmployeeResult.NotFound;
             }
 
             //更新
@@ -119,29 +126,28 @@ namespace EmployeeServices
             empListByShainNo.Hobby = body.Hobby;
             empListByShainNo.IsDeleted = body.IsDeleted;
 
-            return true;
+            return EmployeeResult.Success;
         }
 
         /// <summary>
         /// 削除処理
         /// </summary>
         /// <returns></returns>
-        public bool DeleteEmployee(string shainNo)
+        public EmployeeResult DeleteEmployee(string shainNo)
         {
             var empList = Employees.EmployeeList;
 
             //削除対象データ存在チェック
-            var empListByShainNo = empList.FirstOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
+            var empListByShainNo = empList.SingleOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
             if (empListByShainNo is null)
             {
-                return false;  //★あとでエラーコード返すように変更したい「社員が存在しません」
+                return EmployeeResult.NotFound;
             }
 
             //削除（論理削除）
-            //★トランザクション追記する
             empListByShainNo.IsDeleted = true;
 
-            return true;
+            return EmployeeResult.Success;
         }
     };
 };
