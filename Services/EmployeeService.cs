@@ -69,7 +69,7 @@ namespace EmployeeServices
                     return new AssignShainNoResult
                     {
                         Result = EmployeeResult.Conflict,
-                        ShainNo = null
+                        ShainNo = tmpShainNo
                     };
                 }
             }
@@ -77,7 +77,7 @@ namespace EmployeeServices
             return new AssignShainNoResult
             {
                 Result = EmployeeResult.Success,
-                ShainNo = null
+                ShainNo = tmpShainNo
             };
         }
 
