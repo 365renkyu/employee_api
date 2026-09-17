@@ -1,45 +1,26 @@
 using EmployeeModel;
+using EmployeeRepositories;
 
 namespace EmployeeServices
 {
-    /// <summary>
-    /// Employeeクラス（リスト型）
-    /// 便宜上、DBの代用とする
-    /// </summary>
-    public static class Employees
-    {
-        public static List<Employee> EmployeeList = new()
-        {
-            new Employee { ShainNo = "10001", Name = "山田太郎", Busho = "人事部", Age = 28, Hobby = "写真", IsDeleted = false },
-            new Employee { ShainNo = "10002", Name = "田中次郎", Busho = "開発部", Age = 34, IsDeleted = false },
-            new Employee { ShainNo = "10003", Name = "山本花子", Busho = "営業部", Age = 30, Hobby = "散歩", IsDeleted = true }
-        };
-    };
-
     public class EmployeeService
     {
+        //ファクタリング対象：業務ロジック強化
+        private readonly EmployeeRepository _repository;
 
-        /// <summary>
-        /// 社員情報取得処理
-        /// </summary>
-        /// <param name="shainNo"></param>
-        /// <returns></returns>
-        public List<Employee> GetAll()
+        public EmployeeService(EmployeeRepository repositories)
         {
-            return Employees.EmployeeList;
+            _repository = repositories;
         }
 
-        /// <summary>
-        /// 社員情報取得処理
-        /// </summary>
-        /// <param name="shainNo"></param>
-        /// <returns></returns>
+        public List<Employee> GetAll()
+        {
+            return _repository.GetAll();
+        }
+
         public Employee? GetByShainNo(string shainNo)
         {
-            var empListByShainNo = EmployeeServices.Employees.EmployeeList
-                                  .SingleOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
-
-            return empListByShainNo; //複数件数取得時は例外へ
+            return _repository.GetByShainNo(shainNo);
         }
 
 
@@ -51,7 +32,7 @@ namespace EmployeeServices
         /// </summary>
         public AssignShainNoResult AssignShainNo()
         {
-            var empList = Employees.EmployeeList;
+            var empList = _repository.GetAll();
             string tmpShainNo = "";
 
             if (empList is null || !empList.Any())
@@ -81,26 +62,17 @@ namespace EmployeeServices
             };
         }
 
-        /// <summary>
-        /// 登録
-        /// </summary>
-        /// <returns></returns>
         public EmployeeResult Register(string shainNo, CreateEmployeeDto body)
         {
-            var empList = Employees.EmployeeList;
+            //登録データ存在チェック
+            var employee = _repository.GetByShainNo(shainNo);
 
-            //登録
-            var employee = new EmployeeModel.Employee
+            if (employee is not null)
             {
-                ShainNo = shainNo,
-                Name = body.Name,
-                Busho = body.Busho,
-                Age = body.Age,
-                Hobby = body.Hobby,
-                IsDeleted = body.IsDeleted
-            };
+                return EmployeeResult.Conflict;
+            }
 
-            empList.Add(employee);
+            _repository.Register(shainNo, body);
             return EmployeeResult.Success;
         }
 
@@ -110,43 +82,51 @@ namespace EmployeeServices
         /// <returns></returns>
         public EmployeeResult UpdateEmployee(string shainNo, UpdateEmployeeDto body)
         {
-            var empList = Employees.EmployeeList;
-
             //更新対象データ存在チェック
-            var empListByShainNo = empList.SingleOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
-            if (empListByShainNo is null)
+            var employee = _repository.GetByShainNo(shainNo);
+            if (employee is null)
             {
                 return EmployeeResult.NotFound;
             }
 
             //更新
-            empListByShainNo.Name = body.Name;
-            empListByShainNo.Busho = body.Busho;
-            empListByShainNo.Age = body.Age;
-            empListByShainNo.Hobby = body.Hobby;
-            empListByShainNo.IsDeleted = body.IsDeleted;
-
+            _repository.UpdateEmployee(employee, body);
             return EmployeeResult.Success;
         }
 
         /// <summary>
-        /// 削除処理
+        /// 削除処理（論理削除）
         /// </summary>
         /// <returns></returns>
-        public EmployeeResult DeleteEmployee(string shainNo)
+        public EmployeeResult LogicalDelete(string shainNo)
         {
-            var empList = Employees.EmployeeList;
-
             //削除対象データ存在チェック
-            var empListByShainNo = empList.SingleOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
-            if (empListByShainNo is null)
+            var employee = _repository.GetByShainNo(shainNo);
+            if (employee is null)
             {
                 return EmployeeResult.NotFound;
             }
 
             //削除（論理削除）
-            empListByShainNo.IsDeleted = true;
+            _repository.LogicalDelete(employee);
+            return EmployeeResult.Success;
+        }
 
+        /// <summary>
+        /// 削除処理（物理削除）
+        /// </summary>
+        /// <returns></returns>
+        public EmployeeResult PhysicalDelete(string shainNo)
+        {
+            //削除対象データ存在チェック
+            var employee = _repository.GetByShainNo(shainNo);
+            if (employee is null)
+            {
+                return EmployeeResult.NotFound;
+            }
+
+            //削除（論理削除）
+            _repository.PhysicalDelete(employee);
             return EmployeeResult.Success;
         }
     };

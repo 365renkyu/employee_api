@@ -1,9 +1,11 @@
 using EmployeeServices;
+using EmployeeRepositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddScoped<EmployeeService>();
+builder.Services.AddScoped<EmployeeRepository>();
 // Swagger（API確認用）
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

@@ -29,6 +29,7 @@ public class EmployeeController : ControllerBase
         {
             return NotFound(); //404
         }
+
         return Ok(empListByShainNo);
     }
 
@@ -68,7 +69,7 @@ public class EmployeeController : ControllerBase
     [HttpDelete("{shainNo}")]
     public IActionResult Delete(string shainNo)
     {
-        var result = _service.DeleteEmployee(shainNo);
+        var result = _service.LogicalDelete(shainNo);
 
         return result switch
         {
