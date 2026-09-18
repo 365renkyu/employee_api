@@ -11,5 +11,10 @@ namespace EmployeeRepositories
         }
 
         public DbSet<Employee> Employees { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Employee>().HasKey(e => e.ShainNo);
+        }
     }
 }

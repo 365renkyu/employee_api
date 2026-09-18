@@ -1,28 +1,26 @@
 using EmployeeModel;
+using Microsoft.EntityFrameworkCore;
 
 namespace EmployeeRepositories
+
 {
     public class EmployeeRepository
     {
-        /// 社員リスト
-        /// 便宜上、DBの代用とする
-        /// </summary>
-        public static List<Employee> EmployeeList = new()
-        {
-            new Employee { ShainNo = "10001", Name = "山田太郎", Busho = "人事部", Age = 28, Hobby = "写真", IsDeleted = false },
-            //new Employee { ShainNo = "10001", Name = "山田太郎（例外動作確認用）", Busho = "人事部", Age = 28, Hobby = "写真", IsDeleted = false },
-            new Employee { ShainNo = "10002", Name = "田中次郎", Busho = "開発部", Age = 34, IsDeleted = false },
-            new Employee { ShainNo = "10003", Name = "山本花子", Busho = "営業部", Age = 30, Hobby = "散歩", IsDeleted = true }
-        };
+        private readonly EmployeeDbContext _context;
 
-        /// <summary>
-        /// 社員情報取得処理
-        /// </summary>
-        /// <param name="shainNo"></param>
-        /// <returns></returns>
-        public List<Employee> GetAll()
+        public EmployeeRepository(EmployeeDbContext context)
         {
-            return EmployeeList;
+            _context = context;
+        }
+
+        public async Task<List<Employee>> GetAll()
+        {
+            return await _context.Employees.ToListAsync();
+        }
+
+        public async Task<List<Employee>> GetAllIsValid()
+        {
+            return await _context.Employees.Where(e => !e.IsDeleted).ToListAsync();
         }
 
         /// <summary>
@@ -30,18 +28,18 @@ namespace EmployeeRepositories
         /// </summary>
         /// <param name="shainNo"></param>
         /// <returns></returns>
-        public Employee? GetByShainNo(string shainNo)
+        public async Task<Employee?> GetByShainNo(string shainNo)
         {
-            var empListByShainNo = GetAll().SingleOrDefault(e => e.ShainNo == shainNo && !e.IsDeleted);
-
-            return empListByShainNo; //複数件数取得時は例外へ
+            return await _context.Employees.SingleOrDefaultAsync(e =>
+                                e.ShainNo == shainNo);
+                                // && !e.IsDeleted.　画面上からフラグ変更可能とする
         }
 
         /// <summary>
         /// 登録
         /// </summary>
         /// <returns></returns>
-        public void Register(string shainNo, CreateEmployeeDto body)
+        public async Task Register(string shainNo, CreateEmployeeDto body)
         {
             //登録
             var employee = new EmployeeModel.Employee
@@ -54,14 +52,15 @@ namespace EmployeeRepositories
                 IsDeleted = body.IsDeleted
             };
 
-            GetAll().Add(employee);
+            _context.Employees.Add(employee);
+            await _context.SaveChangesAsync();
         }
 
         /// <summary>
         /// 更新処理
         /// </summary>
         /// <returns></returns>
-        public void UpdateEmployee(Employee employee, UpdateEmployeeDto body)
+        public async Task UpdateEmployee(Employee employee, UpdateEmployeeDto body)
         {
             //更新
             employee.Name = body.Name;
@@ -69,25 +68,29 @@ namespace EmployeeRepositories
             employee.Age = body.Age;
             employee.Hobby = body.Hobby;
             employee.IsDeleted = body.IsDeleted;
+
+            await _context.SaveChangesAsync();
         }
 
         /// <summary>
         /// 削除処理（論理削除）
         /// </summary>
         /// <returns></returns>
-        public void LogicalDelete(Employee employee)
+        public async Task LogicalDelete(Employee employee)
         {
             //削除（論理削除）
             employee.IsDeleted = true;
+            await _context.SaveChangesAsync();
         }
 
         /// <summary>
         /// 削除処理（物理削除）
         /// </summary>
         /// <returns></returns>
-        public void PhysicalDelete(Employee employee)
+        public async Task PhysicalDelete(Employee employee)
         {
-            EmployeeList.Remove(employee);
+            _context.Employees.Remove(employee);
+            await _context.SaveChangesAsync();
         }
     }
 

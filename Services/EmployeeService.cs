@@ -13,12 +13,17 @@ namespace EmployeeServices
             _repository = repositories;
         }
 
-        public List<Employee> GetAll()
+        public Task<List<Employee>> GetAll()
         {
             return _repository.GetAll();
         }
 
-        public Employee? GetByShainNo(string shainNo)
+        public Task<List<Employee>> GetAllIsValid()
+        {
+            return _repository.GetAllIsValid();
+        }
+
+        public Task<Employee?> GetByShainNo(string shainNo)
         {
             return _repository.GetByShainNo(shainNo);
         }
@@ -30,9 +35,9 @@ namespace EmployeeServices
         /// 10001番からスタート
         /// 既存の社員がいるにもかかわらず0+1=1になる場合、後続の社員番号重複エラーでハンドリング
         /// </summary>
-        public AssignShainNoResult AssignShainNo()
+        public async Task<AssignShainNoResult> AssignShainNo()
         {
-            var empList = _repository.GetAll();
+            var empList = await _repository.GetAll();
             string tmpShainNo = "";
 
             if (empList is null || !empList.Any())
@@ -62,35 +67,42 @@ namespace EmployeeServices
             };
         }
 
-        public EmployeeResult Register(string shainNo, CreateEmployeeDto body)
+        public async Task<AssignShainNoResult> Register(CreateEmployeeDto body)
         {
-            //登録データ存在チェック
-            var employee = _repository.GetByShainNo(shainNo);
+            var result = await AssignShainNo(); //社員番号採番
 
-            if (employee is not null)
+            if (result.Result is EmployeeResult.Conflict)
             {
-                return EmployeeResult.Conflict;
+                return new AssignShainNoResult
+                    {
+                        Result = EmployeeResult.Conflict,
+                        ShainNo = result.ShainNo
+                    };
             }
 
-            _repository.Register(shainNo, body);
-            return EmployeeResult.Success;
+            await _repository.Register(result.ShainNo, body);
+            return new AssignShainNoResult
+                    {
+                        Result = EmployeeResult.Success,
+                        ShainNo = result.ShainNo
+                    };
         }
 
         /// <summary>
         /// 更新処理
         /// </summary>
         /// <returns></returns>
-        public EmployeeResult UpdateEmployee(string shainNo, UpdateEmployeeDto body)
+        public async Task<EmployeeResult> UpdateEmployee(string shainNo, UpdateEmployeeDto body)
         {
             //更新対象データ存在チェック
-            var employee = _repository.GetByShainNo(shainNo);
+            var employee = await _repository.GetByShainNo(shainNo);
             if (employee is null)
             {
                 return EmployeeResult.NotFound;
             }
 
             //更新
-            _repository.UpdateEmployee(employee, body);
+            await _repository.UpdateEmployee(employee, body);
             return EmployeeResult.Success;
         }
 
@@ -98,17 +110,17 @@ namespace EmployeeServices
         /// 削除処理（論理削除）
         /// </summary>
         /// <returns></returns>
-        public EmployeeResult LogicalDelete(string shainNo)
+        public async Task<EmployeeResult> LogicalDelete(string shainNo)
         {
             //削除対象データ存在チェック
-            var employee = _repository.GetByShainNo(shainNo);
+            var employee = await _repository.GetByShainNo(shainNo);
             if (employee is null)
             {
                 return EmployeeResult.NotFound;
             }
 
             //削除（論理削除）
-            _repository.LogicalDelete(employee);
+            await _repository.LogicalDelete(employee);
             return EmployeeResult.Success;
         }
 
@@ -116,17 +128,17 @@ namespace EmployeeServices
         /// 削除処理（物理削除）
         /// </summary>
         /// <returns></returns>
-        public EmployeeResult PhysicalDelete(string shainNo)
+        public async Task<EmployeeResult> PhysicalDelete(string shainNo)
         {
             //削除対象データ存在チェック
-            var employee = _repository.GetByShainNo(shainNo);
+            var employee = await _repository.GetByShainNo(shainNo);
             if (employee is null)
             {
                 return EmployeeResult.NotFound;
             }
 
-            //削除（論理削除）
-            _repository.PhysicalDelete(employee);
+            //削除（物理削除）
+            await _repository.PhysicalDelete(employee);
             return EmployeeResult.Success;
         }
     };
